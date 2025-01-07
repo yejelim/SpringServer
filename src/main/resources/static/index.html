@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>WebSocket Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2/dist/stomp.min.js"></script>
+</head>
+<body>
+  <h1>STOMP WebSocket Test</h1>
+  <button id="connectBtn">Connect</button>
+  <button id="sendBtn">Send</button>
+
+  <div id="messages"></div>
+
+  <script>
+    let stompClient = null;
+
+    document.getElementById('connectBtn').addEventListener('click', () => {
+      const socket = new SockJS('http://localhost:8080/ws/chat');
+      stompClient = Stomp.over(socket);
+
+      stompClient.connect({}, frame => {
+        console.log('Connected: ' + frame);
+        
+        // subscribe to /topic/public
+        stompClient.subscribe('/topic/public', msg => {
+          const div = document.getElementById('messages');
+          div.innerHTML += `<p>Received: ${msg.body}</p>`;
+        });
+      });
+    });
+
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      if (stompClient) {
+        stompClient.send("/app/chat.sendMessage", {}, "Hello from client!");
+      }
+    });
+  </script>
+</body>
+</html>
