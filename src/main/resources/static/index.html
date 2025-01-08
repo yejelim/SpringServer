@@ -2,15 +2,17 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>GPT Chat Demo</title>
-  <!-- SockJS, STOMP 라이브러리 (CDN) -->
+  <title>GPT Chat Demo (Stomp.js 2.3.3)</title>
+
+  <!-- SockJS -->
   <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/stompjs@2/dist/stomp.min.js"></script>
+
+  <!-- Stomp.js 2.3.3 from CDNJS (확실히 존재하는 경로) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body>
   <h1>GPT Chat Demo</h1>
-  
-  <button id="connectBtn">Connect</button>
+
   <input type="text" id="userInput" placeholder="Type your message...">
   <button id="sendBtn">Send</button>
 
@@ -19,38 +21,35 @@
   <script>
     let stompClient = null;
 
-    // Connect 버튼: WebSocket 연결
-    document.getElementById('connectBtn').addEventListener('click', () => {
-      const socket = new SockJS('/ws/chat'); 
-      // (WebSocketConfig에서 registry.addEndpoint("/ws/chat").withSockJS();)
+    window.addEventListener('load', () => {
+      console.log("Page loaded, connecting via Stomp.over SockJS...");
 
+      const socket = new SockJS('/ws/chat'); 
       stompClient = Stomp.over(socket);
+
       stompClient.connect({}, frame => {
         console.log('Connected: ' + frame);
 
-        // "/topic/public" 구독 -> 서버에서 @SendTo("/topic/public") 으로 보내는 메시지 받음
+        // 구독
         stompClient.subscribe('/topic/public', msg => {
-          const serverResponse = msg.body; // 서버가 반환한 String
-          // 화면에 표시
+          const serverResponse = msg.body;
           const messagesDiv = document.getElementById('messages');
           messagesDiv.innerHTML += `<p><strong>GPT:</strong> ${serverResponse}</p>`;
         });
+
+      }, error => {
+        console.error('STOMP connect error:', error);
       });
     });
 
-    // Send 버튼: 사용자 입력 -> 서버 전송
     document.getElementById('sendBtn').addEventListener('click', () => {
       if (!stompClient || !stompClient.connected) {
         alert("Not connected to WebSocket yet!");
         return;
       }
       const userMsg = document.getElementById('userInput').value;
-      
-      // 화면에 '사용자' 메시지 표시
       const messagesDiv = document.getElementById('messages');
       messagesDiv.innerHTML += `<p><strong>You:</strong> ${userMsg}</p>`;
-
-      // 서버 @MessageMapping("/chat") 로 전송
       stompClient.send("/app/chat", {}, userMsg);
     });
   </script>
