@@ -2,20 +2,35 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>회원가입 예시</title>
+  <title>회원 가입 + 로그인 테스트</title>
 </head>
 <body>
   <h1>회원가입</h1>
   <label>닉네임:</label> 
-  <input type="text" id="nickname"><br>
+  <input type="text" id="signupNickname"><br>
   <label>비밀번호:</label> 
-  <input type="text" id="password"><br>
-  <button onclick="signup()">가입하기</button>
+  <input type="text" id="signupPassword"><br>
+  <button onclick="signup()">회원가입</button>
+
+  <hr>
+
+  <h1>로그인</h1>
+  <label>닉네임:</label>
+  <input type="text" id="loginNickname"><br>
+  <label>비밀번호:</label>
+  <input type="text" id="loginPassword"><br>
+  <button onclick="login()">로그인</button>
+
+  <hr>
+
+  <h2>쿠키 기반 인증 확인</h2>
+  <button onclick="checkAuth()">Check Auth Status</button>
 
   <script>
+    // (1) 회원가입
     function signup() {
-      const nickname = document.getElementById('nickname').value;
-      const password = document.getElementById('password').value;
+      const nickname = document.getElementById('signupNickname').value;
+      const password = document.getElementById('signupPassword').value;
 
       fetch('/api/auth/signup', {
         method: 'POST',
@@ -23,8 +38,48 @@
         body: JSON.stringify({ nickname, password })
       })
       .then(res => res.text())
-      .then(msg => alert(msg))
+      .then(msg => alert("회원가입 결과: " + msg))
       .catch(err => console.error(err));
+    }
+
+    // (2) 로그인(서버가 Set-Cookie)
+    function login() {
+      const nickname = document.getElementById('loginNickname').value;
+      const password = document.getElementById('loginPassword').value;
+
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ nickname, password })
+      })
+      .then(res => {
+        if(!res.ok) { return res.text().then(t => { throw new Error(t); }); }
+        return res.json();
+      })
+      .then(json => {
+        alert("로그인 성공: " + json.message);
+        // 쿠키(HTTP-only) 자동 저장
+      })
+      .catch(err => alert("로그인 실패: " + err.message));
+    }
+
+    // (3) 보호된 API 호출 → 쿠키 동반 전송
+    function checkAuth() {
+      fetch('/api/test/secure', {
+        method: 'GET'
+        // credentials:'include' if cross-domain, e.g. 
+        // credentials:'include'
+      })
+      .then(res => {
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(text => {
+        alert("인증 성공: " + text);
+      })
+      .catch(err => {
+        alert("인증 실패 or 에러: " + err.message);
+      });
     }
   </script>
 </body>
