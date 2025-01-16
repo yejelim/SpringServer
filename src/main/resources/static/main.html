@@ -97,9 +97,14 @@
 
     // (로그인 사용자) DB 대화내역 불러오기
     function loadHistory() {
-      fetch('/api/chat/history')
+      fetch('/api/chat/history', {
+        method: 'GET',
+        credentials: 'include'
+      })
       .then(res => {
-        if(!res.ok) throw new Error("HTTP " + res.status);
+        if(!res.ok) {
+            return res.text().then(t => {throw new Error(t) });
+        }
         return res.json();
       })
       .then(history => {
