@@ -1,3 +1,4 @@
+// 나중에 로컬 서버 실행시키기 전 테스트용 코드임
 package com.spinai.sakgamnono.service;
 
 import com.spinai.sakgamnono.config.OpenAIConfig;

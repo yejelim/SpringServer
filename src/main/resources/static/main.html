@@ -1,0 +1,183 @@
+<!--로그인/회원가입/채팅 단일 페이지 통합 테스트용-->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test: Anonymous vs. Logged-In Chat</title>
+
+  <!-- SockJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <!-- Stomp.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+  <h1>익명 & 로그인 채팅 테스트</h1>
+
+  <!-- (1) 회원가입 & 로그인 섹션 -->
+  <div style="border:1px solid #ccc; padding:1rem;">
+    <h2>회원가입</h2>
+    <label>닉네임:</label> 
+    <input type="text" id="signupNickname"><br>
+    <label>비밀번호:</label> 
+    <input type="text" id="signupPassword"><br>
+    <button onclick="signup()">회원가입</button>
+
+    <hr/>
+
+    <h2>로그인</h2>
+    <label>닉네임:</label>
+    <input type="text" id="loginNickname"><br>
+    <label>비밀번호:</label>
+    <input type="text" id="loginPassword"><br>
+    <button onclick="login()">로그인</button>
+
+    <hr/>
+    <button onclick="checkAuth()">Check Auth Status</button>
+    <button onclick="loadHistory()">Load Chat History(로그인 시)</button>
+  </div>
+
+  <!-- (2) 채팅 섹션: 익명 or 로그인 연결 -->
+  <div style="border:1px solid #ccc; padding:1rem; margin-top:1rem;">
+    <h2>채팅</h2>
+    <p>
+      <button onclick="connectAsAnonymous()">익명 연결</button>
+      <button onclick="connectWithAuth()">로그인 연결</button>
+      <span id="connectionStatus">Not connected</span>
+    </p>
+
+    <div style="border:1px solid #999; height:200px; overflow:auto; margin-bottom:1rem;" id="chatBox"></div>
+
+    <input type="text" id="chatInput" placeholder="Message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    // -----------------------
+    // A. 회원가입/로그인 로직
+    // -----------------------
+    function signup() {
+      const nickname = document.getElementById('signupNickname').value;
+      const password = document.getElementById('signupPassword').value;
+      fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ nickname, password })
+      })
+      .then(res => res.text())
+      .then(msg => alert("회원가입: " + msg))
+      .catch(err => console.error(err));
+    }
+
+    function login() {
+      const nickname = document.getElementById('loginNickname').value;
+      const password = document.getElementById('loginPassword').value;
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ nickname, password })
+      })
+      .then(res => {
+        if(!res.ok) return res.text().then(t=>{throw new Error(t)});
+        return res.json();
+      })
+      .then(json => alert("로그인: " + json.message))
+      .catch(err => alert("로그인 실패: " + err.message));
+    }
+
+    function checkAuth() {
+      fetch('/api/test/secure')
+      .then(res => {
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        return res.text();
+      })
+      .then(txt => alert("인증 성공: " + txt))
+      .catch(err => alert("인증 실패: " + err.message));
+    }
+
+    // (로그인 사용자) DB 대화내역 불러오기
+    function loadHistory() {
+      fetch('/api/chat/history')
+      .then(res => {
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(history => {
+        if(!Array.isArray(history)) {
+          alert("History response not array: " + JSON.stringify(history));
+          return;
+        }
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML = "";
+        history.forEach(msg => {
+          // msg.role = 'user' or 'assistant'
+          // msg.content
+          chatBox.innerHTML += `<p><strong>${msg.role}</strong>: ${msg.content}</p>`;
+        });
+        alert("대화 내역 불러오기 완료! (로그인 유저만 가능)");
+      })
+      .catch(err => alert("불러오기 실패: " + err.message));
+    }
+
+    // -----------------------
+    // B. WebSocket (STOMP)
+    // -----------------------
+    let stompClient = null;
+
+    function connectAsAnonymous() {
+      connectStomp(/* no auth header */);
+    }
+
+    function connectWithAuth() {
+      // If server reads from Cookie => no header needed
+      // If server reads from "Authorization", do:
+      /*
+      let token = localStorage.getItem("jwtToken"); 
+      connectStomp("Bearer " + token);
+      */
+      connectStomp(); 
+    }
+
+    function connectStomp(authorization) {
+      if(stompClient && stompClient.connected) {
+        stompClient.disconnect(()=>console.log("Old stomp disconnected"));
+      }
+
+      const socket = new SockJS('/ws/chat');
+      stompClient = Stomp.over(socket);
+
+      let connectHeaders = {};
+      if(authorization) connectHeaders['Authorization'] = authorization;
+
+      stompClient.connect(connectHeaders, frame => {
+        console.log("STOMP connected: " + frame);
+        document.getElementById('connectionStatus').innerText = "Connected";
+
+        stompClient.subscribe('/topic/public', msg => {
+          const text = msg.body;
+          const chatBox = document.getElementById('chatBox');
+          chatBox.innerHTML += `<p style="color:blue;"><strong>GPT</strong>: ${text}</p>`;
+          chatBox.scrollTop = chatBox.scrollHeight;
+        });
+      }, err => {
+        console.error("STOMP connect error", err);
+        document.getElementById('connectionStatus').innerText = "Connection failed";
+      });
+    }
+
+    function sendMessage() {
+      if(!stompClient || !stompClient.connected) {
+        alert("WebSocket not connected!");
+        return;
+      }
+      const chatBox = document.getElementById('chatBox');
+      const userMsg = document.getElementById('chatInput').value;
+      chatBox.innerHTML += `<p style="color:green;"><strong>You</strong>: ${userMsg}</p>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // STOMP send
+      stompClient.send("/app/chat", {}, userMsg);
+    }
+  </script>
+</body>
+</html>

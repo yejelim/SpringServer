@@ -12,7 +12,13 @@ import org.springframework.web.socket.config.annotation.*;
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-    
+    // jwtUtil 생성자
+    private final JwtUtil jwtUtil;
+    public WebSocketConfig(JwtUtil jwtUtil) {
+        // jwtUtil 주입
+        this.jwtUtil = jwtUtil;
+    }
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // 프론트엔드에서 연결할 endpoint
