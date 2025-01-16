@@ -99,7 +99,9 @@
     function loadHistory() {
       fetch('/api/chat/history', {
         method: 'GET',
-        credentials: 'include'
+        headers: {
+            'Authorization': 'Bearer ' + storedToken
+        }
       })
       .then(res => {
         if(!res.ok) {
