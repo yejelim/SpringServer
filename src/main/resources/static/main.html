@@ -109,13 +109,13 @@
       })
       .then(msgs => {
         console.log("History:", msgs);
-        if(!Array.isArray(history)) {
-          alert("History response not array: " + JSON.stringify(history));
+        if(!Array.isArray(msgs)) {
+          alert("History response not array: " + JSON.stringify(msgs));
           return;
         }
         const chatBox = document.getElementById('chatBox');
         chatBox.innerHTML = "";
-        history.forEach(msg => {
+        msgs.forEach(msg => {
           // msg.role = 'user' or 'assistant'
           // msg.content
           chatBox.innerHTML += `<p><strong>${msg.role}</strong>: ${msg.content}</p>`;
