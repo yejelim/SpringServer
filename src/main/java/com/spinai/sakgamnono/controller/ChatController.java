@@ -46,7 +46,7 @@ public class ChatController {
 
         // 2) principal != null (로그인 상태) -> DB에 저장
         if (principal != null) {
-            System.out.println("Detected user principal:") + principal.getName());
+            System.out.println("Detected user principal: " + principal.getName());
             String nickname = principal.getName();
 
             // user message
