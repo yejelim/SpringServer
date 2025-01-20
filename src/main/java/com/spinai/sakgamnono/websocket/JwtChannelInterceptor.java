@@ -3,21 +3,20 @@ package com.spinai.sakgamnono.websocket;
 import com.spinai.sakgamnono.jwt.JwtUtil;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.simp.stomp.StompCommand;
-import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
+import org.springframework.messaging.simp.stomp.*;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 /**
- * STOMP 메시지(Connect, Subscribe, Send 등)가 InboundChannel을 통과할 때,
- * JWT를 검증하여 Principal을 설정하는 Interceptor 예시
+ * STOMP 메시지(Connect, Subscribe, Send 등) InboundChannel 시
+ * 쿠키 기반 JWT를 검증하여 Principal을 설정
  */
+@Component
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtUtil jwtUtil;
@@ -28,41 +27,47 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        // STOMP 헤더 접근
         StompHeaderAccessor accessor =
             MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
+        // CONNECT 프레임만 쿠키 파싱
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-            // CONNECT 프레임에서 Authorization (혹은 Cookie) 헤더를 찾는 예시
-            // 1) Authorization 헤더 방식
-            // List<String> authHeaders = accessor.getNativeHeader("Authorization");
-            // 2) 쿠키 방식을 쓸 수도 있음
-            // List<String> cookieHeaders = accessor.getNativeHeader("Cookie");
-
-            List<String> authHeaders = accessor.getNativeHeader("Authorization");
-            if (authHeaders != null && !authHeaders.isEmpty()) {
-                String authHeader = authHeaders.get(0); // ex) "Bearer eyJ..."
-                if (authHeader.startsWith("Bearer ")) {
-                    String token = authHeader.substring(7);
+            List<String> cookieHeaders = accessor.getNativeHeader("Cookie");
+            if (cookieHeaders != null && !cookieHeaders.isEmpty()) {
+                // ex) "ajs_anonymous_id=...; jwtToken=eyJ..."
+                String cookieStr = cookieHeaders.get(0);
+                String token = parseJwtCookie(cookieStr);
+                if (token != null) {
                     try {
                         DecodedJWT decoded = jwtUtil.verifyToken(token);
-                        // userId or nickname 
                         String nickname = decoded.getClaim("nickname").asString();
-
-                        // Principal 설정
-                        StompPrincipal principal = new StompPrincipal(nickname);
-                        accessor.setUser(principal);
-
+                        // Principal
+                        accessor.setUser(new StompPrincipal(nickname));
+                        System.out.println("[JwtChannelInterceptor] STOMP principal = " + nickname);
                     } catch (JWTVerificationException e) {
-                        // 토큰 검증 실패 → CONNECT 거부
-                        // STOMP에서 에러 프레임 or 간단히 null 리턴
-                        return null;
+                        System.out.println("[JwtChannelInterceptor] JWT verify fail. e=" + e);
+                        // 검증 실패 -> 그냥 익명으로
                     }
                 }
             }
-            // Authorization 헤더가 없으면 => 익명( principal=null )
         }
 
         return message;
+    }
+
+    /**
+     * Cookie 문자열에서 "jwtToken=..." 부분만 추출
+     */
+    private String parseJwtCookie(String cookieStr) {
+        // 예) "ajs_anonymous_id=45bd4d...; jwtToken=eyJhbGci..."
+        // 세미콜론으로 split
+        String[] parts = cookieStr.split(";");
+        for (String part : parts) {
+            part = part.trim();
+            if (part.startsWith("jwtToken=")) {
+                return part.substring("jwtToken=".length());
+            }
+        }
+        return null;
     }
 }

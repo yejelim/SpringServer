@@ -99,9 +99,7 @@
     function loadHistory() {
       fetch('/api/chat/history', {
         method: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + storedToken
-        }
+        credentials: 'include'
       })
       .then(res => {
         if(!res.ok) {
@@ -109,7 +107,8 @@
         }
         return res.json();
       })
-      .then(history => {
+      .then(msgs => {
+        console.log("History:", msgs);
         if(!Array.isArray(history)) {
           alert("History response not array: " + JSON.stringify(history));
           return;

@@ -15,6 +15,7 @@ import org.springframework.http.ResponseCookie;
 import java.net.ResponseCache;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -66,16 +67,16 @@ public class AuthController {
 
         // 4) 쿠키 생성
         ResponseCookie cookie = ResponseCookie.from("jwtToken", token)
-                .httpOnly(true)
-                .secure(false) // https를 사용할 때는 true로 변경
-                .path("/")
-                .maxAge(Duration.ofHours(24))
-                .sameSite("None")
-                .build();
+            .httpOnly(true)
+            .secure(false) // https를 사용할 때는 true로 변경
+            .path("/")
+            .maxAge(Duration.ofHours(24))
+            .sameSite("Lax")
+            .build();
 
         return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
-        .body("{\"message\": \"Login success\"}");
+        .body(Map.of("message", "로그인 성공 (쿠키 발행 완료)"));
     }
 
     @RestController
