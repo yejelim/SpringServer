@@ -29,6 +29,7 @@ dependencies {
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	implementation("com.auth0:java-jwt:4.4.0")
 }
